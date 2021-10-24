@@ -20,6 +20,7 @@ object UserCreationServiceApp extends App {
 
 class UserCreationService(console: Console, clock: Clock) {
   import UserCreationService._
+  import console.{readLine, writeLine}
 
   // 1. `readName` works as we expect, but `IO` makes the code
   // more difficult to read by requiring:
@@ -30,41 +31,43 @@ class UserCreationService(console: Console, clock: Clock) {
   // the method `andThen` on the `IO` trait.
   // Then, we'll refactor `readName` with `andThen`.
   // Note: You can find tests in `exercises.action.fp.console.UserCreationServiceTest`
-  val readName: IO[String] =
-    IO {
-      console.writeLine("What's your name?").unsafeRun()
-      console.readLine.unsafeRun()
-    }
+  val readName: IO[String] = {
+    //writeLine("What's your name?").andThen(readLine)
+    writeLine("What's your name?") *> readLine
+  }
 
   // 2. Refactor `readDateOfBirth` so that the code combines the three internal `IO`
   // instead of executing each `IO` one after another using `unsafeRun`.
   // For example, try to use `andThen`.
   // If it doesn't work investigate the methods `map` and `flatMap` on the `IO` trait.
-  val readDateOfBirth: IO[LocalDate] =
-    IO {
-      console.writeLine("What's your date of birth? [dd-mm-yyyy]").unsafeRun()
-      val line = console.readLine.unsafeRun()
-      parseDateOfBirth(line).unsafeRun()
-    }
+  val readDateOfBirth: IO[LocalDate] = {
+    val printError = writeLine("""Incorrect format, for example enter "18-03-2001" for 18th of March 2001""")
+    for {
+      _ <- writeLine("What's your date of birth? [dd-mm-yyyy]")
+      line <- readLine
+      dateOfBirth <- parseDateOfBirth(line).onError(_ => printError)
+    } yield dateOfBirth
+  }
 
   // 3. Refactor `readSubscribeToMailingList` and `readUser` using the same techniques as `readDateOfBirth`.
-  val readSubscribeToMailingList: IO[Boolean] =
-    IO {
-      console.writeLine("Would you like to subscribe to our mailing list? [Y/N]").unsafeRun()
-      val line = console.readLine.unsafeRun()
-      parseLineToBoolean(line).unsafeRun()
-    }
+  val readSubscribeToMailingList: IO[Boolean] = {
+    val printError = writeLine("""Incorrect format, enter "Y" for Yes or "N" for "No"""")
+    for{
+      _      <- writeLine("Would you like to subscribe to our mailing list? [Y/N]")
+      line   <- readLine
+      yesNo  <- parseLineToBoolean(line).onError(_ => printError)
+    } yield yesNo
+  }
 
   val readUser: IO[User] =
-    IO {
-      val name        = readName.unsafeRun()
-      val dateOfBirth = readDateOfBirth.unsafeRun()
-      val subscribed  = readSubscribeToMailingList.unsafeRun()
-      val now         = clock.now.unsafeRun()
-      val user        = User(name, dateOfBirth, subscribed, now)
-      console.writeLine(s"User is $user").unsafeRun()
-      user
-    }
+    for {
+      name        <- readName
+      dateOfBirth <- readDateOfBirth.retry(maxAttempt = 3)
+      subscribed  <- readSubscribeToMailingList.retry(maxAttempt = 3)
+      now         <- clock.now
+      user        =  User(name, dateOfBirth, subscribed, now)
+      _           <- writeLine(s"User is $user")
+    } yield user
 
   //////////////////////////////////////////////
   // PART 2: For Comprehension

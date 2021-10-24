@@ -7,6 +7,7 @@ import org.scalacheck.{Arbitrary, Gen}
 object DateGenerator {
   val dateGen: Gen[LocalDate] =
     Gen
+      //.choose(LocalDate.of(1950, 1 , 1).toEpochDay, LocalDate.MAX.toEpochDay)
       .choose(LocalDate.MIN.toEpochDay, LocalDate.MAX.toEpochDay)
       .map(LocalDate.ofEpochDay)
 
